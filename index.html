@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html class="dark" lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>MergeSort: Cinematic Lab</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+    <style>
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        body { font-family: 'Inter', sans-serif; background-color: #0c1324; color: #dce1fb; overflow: hidden; margin: 0; padding: 0; }
+        h1, h2, h3, .font-headline { font-family: 'Space Grotesk', sans-serif; }
+        .mono { font-family: 'ui-monospace', 'SFMono-Regular', Menlo, Monaco, Consolas, monospace; }
+        .glass-panel { backdrop-filter: blur(20px); background: rgba(25, 31, 49, 0.7); }
+        canvas { position: absolute; top: 0; left: 0; z-index: 10; pointer-events: none; }
+    </style>
+    <script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: { extend: { colors: {
+            "surface": "#0c1324", "primary": "#89ceff", "secondary": "#4edea3", "tertiary": "#ffb95f",
+            "outline-variant": "#3e4850", "surface-container-high": "#191f31", "on-surface-variant": "#bec8d2"
+          }}}
+        }
+    </script>
+</head>
+<body class="bg-surface text-on-background min-h-screen selection:bg-primary/30">
+
+<header class="fixed top-0 w-full z-50 flex justify-between items-center px-6 h-16 bg-slate-950/80 backdrop-blur-md border-b border-slate-800 shadow-2xl">
+    <div class="flex items-center gap-8">
+        <h1 class="text-xl font-black uppercase tracking-widest text-white">MergeSort: Cinematic</h1>
+        <nav class="hidden md:flex gap-6 items-center">
+            <a class="font-sans tracking-tight text-blue-400 border-b-2 border-blue-400 pb-1" href="#">Theory</a>
+            <a class="font-sans tracking-tight text-slate-400 hover:text-white transition-colors" href="#">Complexity</a>
+        </nav>
+    </div>
+</header>
+
+<div class="absolute inset-0 z-0 opacity-20 pointer-events-none" style="background-image: radial-gradient(circle at 50% 50%, #1e293b 0%, #0c1324 100%);"></div>
+
+<canvas id="canvas"></canvas>
+
+<div class="fixed right-8 top-24 bottom-24 w-72 flex flex-col gap-4 z-40 pointer-events-none hidden lg:flex">
+    <div class="flex-1 glass-panel rounded-xl border border-outline-variant/15 p-4 overflow-hidden flex flex-col">
+        <h4 class="font-headline text-xs font-bold uppercase tracking-widest text-primary mb-4 flex items-center gap-2">
+            <span class="material-symbols-outlined text-sm">layers</span> Call Stack
+        </h4>
+        <div class="space-y-3" id="call-stack">
+            <div class="p-2 bg-primary/10 border-l-2 border-primary rounded-r">
+                <div class="text-[10px] mono text-white">Aguardando Execução...</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="fixed top-24 left-8 w-72 glass-panel rounded-xl p-5 border border-outline-variant/15 shadow-2xl z-40">
+    <div class="flex items-center gap-3 mb-4">
+        <div class="w-8 h-8 rounded-full bg-blue-900/50 p-1 flex justify-center items-center border border-primary/30">
+            <span class="material-symbols-outlined text-primary text-sm">smart_toy</span>
+        </div>
+        <div>
+            <h3 class="font-headline text-sm font-bold text-white leading-tight">LOGIC ENGINE</h3>
+            <span id="logic-phase" class="text-[10px] text-secondary font-bold uppercase">System Ready</span>
+        </div>
+    </div>
+    <p id="logic-narrator" class="text-xs text-on-surface-variant leading-relaxed mb-4">
+        Pressione Play na barra de controles abaixo para iniciar a demonstração física da Árvore de Divisão e Merge.
+    </p>
+    <div class="space-y-2 border-t border-outline-variant/20 pt-4">
+        <div class="flex justify-between">
+            <span class="text-[10px] uppercase text-slate-400">Memory Extra</span>
+            <span id="mem-metric" class="text-[12px] mono text-tertiary font-bold">0 slots</span>
+        </div>
+        <div class="flex justify-between">
+            <span class="text-[10px] uppercase text-slate-400">Complexity</span>
+            <span class="text-[10px] mono text-primary">O(n log n)</span>
+        </div>
+    </div>
+</div>
+
+<footer class="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 flex items-center gap-6 px-8 py-3 bg-slate-900/90 backdrop-blur-xl rounded-full border border-slate-700/50 shadow-[0_0_40px_rgba(0,0,0,0.7)]">
+    <button id="btn-play" onclick="start()" class="flex flex-col items-center justify-center bg-blue-600 text-white rounded-full w-12 h-12 shadow-[0_0_15px_rgba(37,99,235,0.5)] active:scale-90 transition-all duration-100 cursor-pointer">
+        <span class="material-symbols-outlined">play_arrow</span>
+    </button>
+    <button id="btn-pause" onclick="togglePause()" class="flex flex-col items-center justify-center text-slate-400 w-12 h-12 hover:text-tertiary hover:scale-110 active:scale-90 transition-all cursor-pointer">
+        <span id="pause-icon" class="material-symbols-outlined">pause</span>
+    </button>
+</footer>
+
+<script>
+// --- MOTOR CANVAS CINEMATIC ---
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+const phaseDisplay = document.getElementById('logic-phase');
+const narrator = document.getElementById('logic-narrator');
+const memDisplay = document.getElementById('mem-metric');
+const btnPlay = document.getElementById('btn-play');
+const pauseIcon = document.getElementById('pause-icon');
+
+// Dimensões
+const BLOCK_W = 56;
+const BLOCK_H = 80;
+const GAP = 16;
+const LEVEL_Y = 130; 
+
+// Paleta Tailwind Cinematic
+const COLORS = {
+    bg: "#191f31",       // surface-container-high
+    border: "#3e4850",   // outline-variant
+    textBase: "#89ceff", // primary (cyan)
+    compBorder: "#ffb95f",// tertiary (amber)
+    compShadow: "rgba(255, 185, 95, 0.4)",
+    sortedBorder: "#4edea3", // secondary (emerald)
+    sortedShadow: "rgba(78, 222, 163, 0.4)"
+};
+
+let isPaused = false;
+let isRunning = false;
+let blocks = [];
+let treeRoot = null;
+let ghosts = []; 
+let fadedBlocks = []; 
+let activeBuffer = null; 
+
+class FadedBlock {
+    constructor(val, x, y, id) {
+        this.val = val; this.x = x; this.y = y; this.id = id;
+        this.opacity = 0.4; this.targetOpacity = 0.4;
+    }
+    update() { this.opacity += (this.targetOpacity - this.opacity) * 0.1; }
+    draw() {
+        if (this.opacity < 0.01) return;
+        ctx.save();
+        ctx.globalAlpha = this.opacity;
+        ctx.translate(this.x, this.y);
+        ctx.fillStyle = COLORS.bg;
+        ctx.strokeStyle = COLORS.border;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.roundRect(-BLOCK_W/2, -BLOCK_H/2, BLOCK_W, BLOCK_H, 8);
+        ctx.fill(); ctx.stroke();
+        ctx.fillStyle = COLORS.border; 
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.font = "bold 16px 'Space Grotesk', monospace";
+        ctx.fillText(this.val, 0, -10);
+        ctx.restore();
+    }
+}
+
+class Block {
+    constructor(val, x, y, originalIndex) {
+        this.val = val; this.id = originalIndex;
+        this.x = x; this.y = y; this.tx = x; this.ty = y;
+        this.state = "idle"; 
+        this.scale = 1; this.targetScale = 1;
+    }
+    update() {
+        this.x += (this.tx - this.x) * 0.12;
+        this.y += (this.ty - this.y) * 0.12;
+        this.scale += (this.targetScale - this.scale) * 0.15;
+    }
+    draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.scale(this.scale, this.scale);
+        
+        ctx.fillStyle = COLORS.bg;
+        ctx.lineWidth = 2;
+        
+        if (this.state === "comparing") {
+            ctx.shadowBlur = 15; ctx.shadowColor = COLORS.compShadow;
+            ctx.strokeStyle = COLORS.compBorder;
+            ctx.fillStyle = "rgba(255, 185, 95, 0.05)";
+        } else if (this.state === "sorted") {
+            ctx.shadowBlur = 15; ctx.shadowColor = COLORS.sortedShadow;
+            ctx.strokeStyle = COLORS.sortedBorder;
+            ctx.fillStyle = "rgba(78, 222, 163, 0.05)";
+        } else {
+            ctx.shadowBlur = 0;
+            ctx.strokeStyle = COLORS.border;
+        }
+
+        ctx.beginPath();
+        ctx.roundRect(-BLOCK_W/2, -BLOCK_H/2, BLOCK_W, BLOCK_H, 12);
+        ctx.fill(); ctx.stroke();
+        
+        ctx.beginPath();
+        ctx.moveTo(-16, 12); ctx.lineTo(16, 12);
+        ctx.strokeStyle = this.state === "comparing" ? "rgba(255, 185, 95, 0.3)" : 
+                          this.state === "sorted" ? "rgba(78, 222, 163, 0.3)" : "rgba(137, 206, 255, 0.3)";
+        ctx.stroke();
+
+        ctx.fillStyle = this.state === "comparing" ? COLORS.compBorder : 
+                        this.state === "sorted" ? COLORS.sortedBorder : COLORS.textBase;
+        ctx.textAlign = "center"; ctx.textBaseline = "middle";
+        ctx.font = "bold 20px 'Space Grotesk', monospace";
+        ctx.fillText(this.val, 0, -8);
+        
+        ctx.restore();
+    }
+}
+
+// ---------------------------------------------------------------------
+// A MÁGICA DA PIRÂMIDE: Distribuição Proporcional de Espaço
+// ---------------------------------------------------------------------
+function buildTree(level, start, end, boundsLeft, boundsRight) {
+    let node = { level, start, end, length: end - start + 1 };
+    
+    // O centro do nó é perfeitamente o meio do espaço alocado para ele na tela
+    node.centerX = (boundsLeft + boundsRight) / 2;
+    node.y = 120 + level * LEVEL_Y;
+
+    if (node.length > 1) {
+        let mid = start + Math.ceil(node.length / 2); 
+        
+        // Calcula a proporção do espaço que a esquerda deve levar vs direita
+        let leftRatio = (mid - start) / node.length; 
+        let splitPoint = boundsLeft + (boundsRight - boundsLeft) * leftRatio;
+
+        // Passa o espaço dividido para os filhos. Isso empurra os galhos para os lados!
+        node.left = buildTree(level + 1, start, mid - 1, boundsLeft, splitPoint);
+        node.right = buildTree(level + 1, mid, end, splitPoint, boundsRight);
+    }
+    return node;
+}
+
+function init() {
+    ghosts = []; blocks = []; fadedBlocks = [];
+    phaseDisplay.innerText = "Initializing Array";
+    memDisplay.innerText = "0 slots";
+    activeBuffer = null;
+
+    const arr = [42, 17, 89, 23, 56, 8, 11, 33, 91];
+    
+    // Define a largura total da base da árvore (aprox 900 pixels para o centro da tela)
+    let totalSpread = Math.min(1000, canvas.width * 0.75); 
+    let startXBounds = (canvas.width / 2) - (totalSpread / 2);
+    let endXBounds = (canvas.width / 2) + (totalSpread / 2);
+
+    // Constrói a árvore já com os limites para expansão diagonal
+    treeRoot = buildTree(0, 0, 8, startXBounds, endXBounds);
+    
+    // Posiciona os blocos originais compactados no Nível 0
+    blocks = arr.map((val, i) => {
+        let x = treeRoot.centerX - ((treeRoot.length * (BLOCK_W + GAP)) / 2) + (BLOCK_W / 2) + i * (BLOCK_W + GAP);
+        return new Block(val, x, treeRoot.y, i);
+    });
+}
+
+async function sleep(ms) {
+    let elapsed = 0;
+    while (elapsed < ms || isPaused) {
+        await new Promise(r => requestAnimationFrame(r));
+        if (!isPaused) elapsed += 16; 
+    }
+}
+
+function togglePause() {
+    if(!isRunning) return;
+    isPaused = !isPaused;
+    pauseIcon.innerText = isPaused ? "play_arrow" : "pause";
+    pauseIcon.parentElement.style.color = isPaused ? COLORS.compBorder : "";
+}
+
+async function performDescent() {
+    phaseDisplay.innerText = "Divisão Recursiva";
+    narrator.innerHTML = "A gravidade separa a estrutura em formato de árvore.<br><br><span class='text-primary'>Deixando rastro na memória (Esqueleto Translúcido).</span>";
+    
+    for (let currentLevel = 1; currentLevel <= 4; currentLevel++) {
+        let moved = false;
+        function moveNode(node) {
+            if (node.level === currentLevel) {
+                for (let i = node.start; i <= node.end; i++) {
+                    let b = blocks.find(blk => blk.id === i);
+                    let localIndex = i - node.start;
+                    
+                    // Ele busca o centerX que agora está afastado em diagonal!
+                    let newTx = node.centerX - ((node.length * (BLOCK_W + GAP)) / 2) + (BLOCK_W / 2) + localIndex * (BLOCK_W + GAP);
+                    let newTy = node.y;
+                    
+                    if (b.ty !== newTy) fadedBlocks.push(new FadedBlock(b.val, b.tx, b.ty, b.id));
+                    b.tx = newTx; b.ty = newTy;
+                }
+                moved = true;
+            }
+            if (node.left) moveNode(node.left);
+            if (node.right) moveNode(node.right);
+        }
+        moveNode(treeRoot);
+        if (moved) await sleep(1200); 
+    }
+    await sleep(2000);
+}
+
+async function performAscent(node) {
+    if (!node.left && !node.right) {
+        let unitary = blocks.find(b => b.id === node.start);
+        unitary.state = "sorted"; 
+        return [unitary]; 
+    }
+    let leftSorted = await performAscent(node.left);
+    let rightSorted = await performAscent(node.right);
+
+    if (node.level === 0) {
+        phaseDisplay.innerText = "Camera Adjust";
+        narrator.innerText = "Centralizando módulos para intercalação principal...";
+        const SHIFT_DOWN = 180; 
+        node.y += SHIFT_DOWN; 
+        leftSorted.forEach(b => b.ty += SHIFT_DOWN);
+        rightSorted.forEach(b => b.ty += SHIFT_DOWN);
+        fadedBlocks.forEach(fb => { if (fb.y < 200) fb.y += SHIFT_DOWN; });
+        await sleep(3000); 
+    }
+    return await executeMergeAnimation(node, leftSorted, rightSorted);
+}
+
+async function executeMergeAnimation(parentNode, leftBlocks, rightBlocks) {
+    phaseDisplay.innerText = "Executing Merge";
+    const size = leftBlocks.length + rightBlocks.length;
+    narrator.innerHTML = `Instanciando Buffer de Memória.<br>Alocando <span class='text-tertiary mono'>${size} slots</span> no andar superior.`;
+    memDisplay.innerText = size + " slots";
+
+    leftBlocks.forEach(b => b.state = "idle");
+    rightBlocks.forEach(b => b.state = "idle");
+
+    fadedBlocks.forEach(fb => {
+        if (fb.id >= parentNode.start && fb.id <= parentNode.end && fb.y === parentNode.y) {
+            fb.targetOpacity = 0; 
+        }
+    });
+
+    const startX = parentNode.centerX - ((size * (BLOCK_W + GAP)) / 2) + (BLOCK_W / 2);
+    activeBuffer = { slots: size, startX: startX, y: parentNode.y, filled: 0 };
+    await sleep(1500); 
+
+    let result = [];
+    let i = 0, j = 0;
+
+    while (i < leftBlocks.length && j < rightBlocks.length) {
+        leftBlocks[i].state = "comparing"; rightBlocks[j].state = "comparing";
+        narrator.innerHTML = `Comparando <span class="text-primary mono">${leftBlocks[i].val}</span> e <span class="text-primary mono">${rightBlocks[j].val}</span>...`;
+        await sleep(1200);
+
+        let winner, loser;
+        if (leftBlocks[i].val <= rightBlocks[j].val) {
+            winner = leftBlocks[i]; loser = rightBlocks[j]; i++;
+        } else {
+            winner = rightBlocks[j]; loser = leftBlocks[i]; j++;
+        }
+        
+        loser.state = "idle";
+        narrator.innerHTML = `O elemento <span class="text-tertiary mono">${winner.val}</span> é menor. Transferindo para o Buffer.`;
+        await suckUpToBuffer(winner, activeBuffer); 
+        result.push(winner);
+    }
+
+    while (i < leftBlocks.length) {
+        let remainder = leftBlocks[i]; remainder.state = "idle"; 
+        narrator.innerHTML = `Lado direito exausto. Descarregando <span class="text-secondary mono">${remainder.val}</span>.`;
+        await suckUpToBuffer(remainder, activeBuffer);
+        result.push(remainder); i++;
+    }
+    while (j < rightBlocks.length) {
+        let remainder = rightBlocks[j]; remainder.state = "idle"; 
+        narrator.innerHTML = `Lado esquerdo exausto. Descarregando <span class="text-secondary mono">${remainder.val}</span>.`;
+        await suckUpToBuffer(remainder, activeBuffer);
+        result.push(remainder); j++;
+    }
+
+    phaseDisplay.innerText = "Buffer Flush";
+    narrator.innerText = `Sub-array processado. Liberando memória virtual e apagando origens.`;
+    await sleep(1000);
+
+    ghosts = ghosts.filter(g => !result.includes(g.ref)); 
+    activeBuffer = null;
+    memDisplay.innerText = "0 slots";
+    await sleep(800);
+    
+    return result;
+}
+
+async function suckUpToBuffer(block, bufferState) {
+    block.state = "sorted"; 
+    ghosts.push({ x: block.tx, y: block.ty, ref: block }); 
+    const destX = bufferState.startX + bufferState.filled * (BLOCK_W + GAP);
+    block.tx = destX; block.ty = bufferState.y; 
+    bufferState.filled++;
+    await sleep(800);
+}
+
+async function start() {
+    if (isRunning) return;
+    isRunning = true;
+    btnPlay.style.background = "#1e293b"; 
+    btnPlay.style.color = "#475569";
+    
+    init();
+    await sleep(1000);
+    
+    await performDescent();
+    await performAscent(treeRoot);
+    
+    phaseDisplay.innerText = "Finalizing";
+    narrator.innerText = "Renderização completa. Centralizando bloco consolidado...";
+    
+    const centerY = canvas.height / 2;
+    blocks.forEach(b => { b.ty = centerY; });
+    await sleep(1500); 
+    
+    phaseDisplay.innerText = "Success";
+    narrator.innerHTML = "<span class='text-secondary'>Data Sorted.</span><br>Onda de confirmação iniciada.";
+    
+    let visualSortedBlocks = [...blocks].sort((a, b) => a.tx - b.tx);
+    for (let i = 0; i < visualSortedBlocks.length; i++) {
+        visualSortedBlocks[i].targetScale = 1.25;
+        setTimeout(() => { visualSortedBlocks[i].targetScale = 1.0; }, 500); 
+        await sleep(200); 
+    }
+    
+    await sleep(1000);
+    narrator.innerText = "Algoritmo Merge Sort executado com perfeição em modo cinemático.";
+    btnPlay.style.background = "#2563eb"; 
+    btnPlay.style.color = "white";
+    isRunning = false;
+}
+
+function drawGhostsAndBuffer() {
+    fadedBlocks.forEach(fb => { fb.update(); fb.draw(); });
+
+    ctx.strokeStyle = "rgba(62, 72, 80, 0.5)";
+    ctx.setLineDash([4, 4]);
+    ctx.lineWidth = 1;
+    ghosts.forEach(g => {
+        ctx.strokeRect(g.x - BLOCK_W/2, g.y - BLOCK_H/2, BLOCK_W, BLOCK_H);
+    });
+
+    if (activeBuffer) {
+        for (let i = 0; i < activeBuffer.slots; i++) {
+            let slotX = activeBuffer.startX + i * (BLOCK_W + GAP);
+            
+            ctx.strokeStyle = COLORS.compBorder;
+            ctx.fillStyle = "rgba(255, 185, 95, 0.05)";
+            ctx.beginPath();
+            ctx.roundRect(slotX - BLOCK_W/2, activeBuffer.y - BLOCK_H/2, BLOCK_W, BLOCK_H, 12);
+            ctx.fill(); ctx.stroke();
+            
+            if (i >= activeBuffer.filled) {
+                ctx.fillStyle = "rgba(255, 185, 95, 0.3)";
+                ctx.textAlign = "center"; ctx.textBaseline = "middle";
+                ctx.font = "bold 20px monospace";
+                ctx.fillText("-", slotX, activeBuffer.y);
+            }
+        }
+        ctx.fillStyle = COLORS.compBorder;
+        ctx.font = "10px 'Space Grotesk', sans-serif";
+        ctx.fillText("VIRTUAL BUFFER ALOCADO", activeBuffer.startX + (activeBuffer.slots * BLOCK_W)/2, activeBuffer.y + BLOCK_H/2 + 20);
+    }
+    ctx.setLineDash([]);
+}
+
+function loop() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawGhostsAndBuffer();
+    blocks.forEach(b => { b.update(); b.draw(); });
+    requestAnimationFrame(loop);
+}
+
+init();
+loop();
+</script>
+</body>
+</html>
